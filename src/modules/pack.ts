@@ -3,8 +3,9 @@ import path from 'path';
 import yaml from 'js-yaml';
 import { getTransformedScript } from '@quajs/get-func-exports';
 import type { Command } from 'commander';
-import type { Action, LangMeta, ProjectMeta, ScriptData, SectionMeta, StatementActionPair } from '../types/meta';
+import type { Action, LangMeta, ProjectMeta, ScriptData, ProjectBundleMeta, StatementActionPair } from '../types/meta';
 import { getAllKeys, QuaFileList, walk } from '../utils';
+import archiver from 'archiver';
 
 const timeRegex = /([0-9]+):([0-6][0-9]).?([0-9]*)/;
 
@@ -161,7 +162,7 @@ const register = (program: Command) => {
       ) as ProjectMeta;
       const langs: string[] = projectMeta.langs ? projectMeta.langs : ['default'];
       // do pack files
-      const allResources: string[] = [];
+      const projectBundleMeta: ProjectBundleMeta = {"langs": [], "resources": {}, "name": projectMeta.name};
       const packRes = await Promise.all(langs.map((lang) => packFiles(entryPath, lang)));
       // write to output
       const outputPath = './dist';
@@ -169,10 +170,35 @@ const register = (program: Command) => {
         fs.mkdirSync(outputPath);
       }
       packRes.forEach((res) => {
-        allResources.push(...res.resources);
+        projectBundleMeta.resources[res.lang] = res.resources;
+        projectBundleMeta.langs.push(res.lang);
         const scriptFileName = `${res.lang}.json`;
         fs.writeFileSync(path.join(outputPath, scriptFileName), JSON.stringify(res.scriptData));
       });
+      fs.writeFileSync(path.join(outputPath, "meta.json"), JSON.stringify(projectBundleMeta));
+      const output = fs.createWriteStream(projectMeta.name + ".zip");
+      const archive = archiver('zip', {
+        zlib: { level: 9 }
+      });
+      archive.on('error', function(err) {
+        throw err;
+      });
+      archive.pipe(output);
+      archive.directory(outputPath, false);
+      let allResources: string[] = []
+      projectBundleMeta.langs.forEach(lang => {
+        allResources = allResources.concat(projectBundleMeta.resources[lang].filter(v => !allResources.includes(v)))
+      })
+      allResources.forEach(resPath => {
+        archive.file(path.join(entryPath, "resources", resPath), { name: "resources/" + resPath });
+      })
+      output.on('close', () => {
+        fs.rmSync(outputPath, { recursive: true, force: true });
+      })
+      archive.on('error', function(err) {
+        throw err;
+      });
+      archive.finalize();
     });
 };
 

@@ -15,6 +15,14 @@ export interface LangMeta {
   };
 }
 
+export interface ProjectBundleMeta {
+  name: string;
+  langs: string[];
+  resources: {
+    [lang: string]: string[];
+  };
+}
+
 export interface ScriptData {
   script: {
     [propName: string]: Array<StatementActionPair>;
