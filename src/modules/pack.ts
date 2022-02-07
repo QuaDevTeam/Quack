@@ -91,12 +91,12 @@ const packJsFile = (context: PackJsFileContext) => {
 
 // pack files for each lang
 const packFiles = async (entryPath: string, lang: string) => {
-  const scriptData: ScriptData = { script: {}, control: {}, entry: {} };
+  const scriptData: ScriptData = { script: {}, control: {}, entry: "" };
   const scriptPath = path.join(entryPath, 'scripts', lang === 'default' ? '' : lang);
   const langMeta = yaml.load(fs.readFileSync(path.join(scriptPath, 'meta.yml'), 'utf8')) as LangMeta;
   let fileAlias: LangMeta["resources"] = {};
   if (langMeta.entry) {
-    scriptData.entry[lang] = langMeta.entry;
+    scriptData.entry = langMeta.entry;
   }
 
   for await (const found of walk(scriptPath)) {

@@ -24,9 +24,7 @@ export interface ScriptData {
   control: {
     [propName: string]: string[];
   };
-  entry: {
-    [propName: string]: string;
-  };
+  entry: string;
 }
 
 export interface StatementActionPair {

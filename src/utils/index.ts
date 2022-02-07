@@ -39,7 +39,7 @@ export function getAllKeys(targetKey: string, data: {
       });
     } else if (safeKey === targetKey) {
       if (replace[str]) {
-        data[safeKey] = replace[str]
+        data[safeKey] = replace[str];
       }
       result.push(data[safeKey]);
     }
