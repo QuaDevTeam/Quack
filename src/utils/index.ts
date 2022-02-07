@@ -29,19 +29,21 @@ export function getAllKeys(targetKey: string, data: {
   keys.forEach((key) => {
     const safeKey = key as keyof typeof data;
     const item = data[safeKey];
-    const str = item.toString();
-    if (typeof item === 'object' && str === '[object Object]') {
-      // is object
-      result = result.concat(getAllKeys(targetKey, data[safeKey], replace));
-    } else if (Array.isArray(item)) {
-      item.forEach((child) => {
-        result = result.concat(getAllKeys(targetKey, child, replace));
-      });
-    } else if (safeKey === targetKey) {
-      if (replace[str]) {
-        data[safeKey] = replace[str];
+    if (item) {
+      const str = item.toString();
+      if (typeof item === 'object' && str === '[object Object]') {
+        // is object
+        result = result.concat(getAllKeys(targetKey, data[safeKey], replace));
+      } else if (Array.isArray(item)) {
+        item.forEach((child) => {
+          result = result.concat(getAllKeys(targetKey, child, replace));
+        });
+      } else if (safeKey === targetKey) {
+        if (replace[str]) {
+          data[safeKey] = replace[str];
+        }
+        result.push(data[safeKey]);
       }
-      result.push(data[safeKey]);
     }
   });
 
