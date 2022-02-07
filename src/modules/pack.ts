@@ -23,8 +23,8 @@ const packQsFile = (context: PackQsFileContext) => {
   scriptData.script[qScriptLoc] = [];
   let scriptContent = fs.readFileSync(path.join(fileList.path, filePath), 'utf8').split(/\r?\n\r?\n/);
   for (let pairAction of scriptContent) {
-    let pairActionLines = pairAction.split(/\r?\n/);
-    let lastLine = pairActionLines[pairActionLines.length - 1];
+    const pairActionLines = pairAction.split(/\r?\n/);
+    const lastLine = pairActionLines[pairActionLines.length - 1];
 
     const includeColonOrDash = lastLine.includes(':') || lastLine.includes('-');
     const wrappedWithQuote =
@@ -35,8 +35,8 @@ const packQsFile = (context: PackQsFileContext) => {
       pairAction = pairActionLines.join('\n');
     }
 
-    let actionStatementPair: Partial<StatementActionPair> = yaml.load(pairAction) as Partial<StatementActionPair>;
-    let allKeys = Object.keys(actionStatementPair);
+    const actionStatementPair: Partial<StatementActionPair> = yaml.load(pairAction) as Partial<StatementActionPair>;
+    const allKeys = Object.keys(actionStatementPair);
     const subject = allKeys[allKeys.length === 1 ? 0 : allKeys.length - 1];
     const statementContent = actionStatementPair[subject as keyof typeof actionStatementPair];
     const content: StatementActionPair = {
