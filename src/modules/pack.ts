@@ -1,11 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
+import archiver from 'archiver';
 import { getTransformedScript } from '@quajs/get-func-exports';
 import type { Command } from 'commander';
 import type { Action, LangMeta, ProjectMeta, ScriptData, ProjectBundleMeta, StatementActionPair } from '../types/meta';
 import { getAllKeys, QuaFileList, walk } from '../utils';
-import archiver from 'archiver';
 
 const timeRegex = /([0-9]+):([0-6][0-9]).?([0-9]*)/;
 
@@ -92,15 +92,15 @@ const packJsFile = (context: PackJsFileContext) => {
 
 // pack files for each lang
 const packFiles = async (entryPath: string, lang: string) => {
-  const scriptData: ScriptData = { script: {}, control: {}, entry: "", character: {} };
+  const scriptData: ScriptData = { script: {}, control: {}, entry: '', character: {} };
   const scriptPath = path.join(entryPath, 'scripts', lang === 'default' ? '' : lang);
   const langMeta = yaml.load(fs.readFileSync(path.join(scriptPath, 'meta.yml'), 'utf8')) as LangMeta;
-  let fileAlias: LangMeta["resources"] = {};
+  let fileAlias: LangMeta['resources'] = {};
   if (langMeta.entry) {
     scriptData.entry = langMeta.entry;
   }
   if (langMeta.character) {
-    scriptData.character = langMeta.character
+    scriptData.character = langMeta.character;
   }
 
   for await (const found of walk(scriptPath)) {
@@ -109,7 +109,7 @@ const packFiles = async (entryPath: string, lang: string) => {
     }
 
     if (langMeta.resources) {
-      fileAlias = langMeta.resources
+      fileAlias = langMeta.resources;
     }
 
     const scriptNamespace = found.path
@@ -150,55 +150,113 @@ const packFiles = async (entryPath: string, lang: string) => {
   };
 };
 
+interface CreateMetaFilesContext {
+  projectBundleMeta: ProjectBundleMeta;
+  outputPath: string;
+}
+
+const createMetaFiles = async (
+  packRes: {
+    lang: string;
+    resources: string[];
+    scriptData: ScriptData;
+  }[],
+  context: CreateMetaFilesContext,
+) => {
+  const { projectBundleMeta, outputPath } = context;
+  await Promise.all(
+    packRes.map((res) => {
+      projectBundleMeta.resources[res.lang] = res.resources;
+      projectBundleMeta.langs.push(res.lang);
+      const scriptFileName = `${res.lang}.json`;
+      return fs.promises.writeFile(path.join(outputPath, scriptFileName), JSON.stringify(res.scriptData));
+    }),
+  );
+  fs.writeFileSync(path.join(outputPath, 'meta.json'), JSON.stringify(projectBundleMeta));
+};
+
+interface CreateResourcePackContext {
+  projectMeta: ProjectMeta;
+  projectBundleMeta: ProjectBundleMeta;
+  entryPath: string;
+  outputPath: string;
+  tempPath: string;
+}
+
+const createResourcePack = (context: CreateResourcePackContext): Promise<void> => {
+  const { projectMeta, projectBundleMeta, entryPath, outputPath, tempPath } = context;
+  const output = fs.createWriteStream(path.resolve(outputPath, `./${projectMeta.name}.zip`));
+  const archive = archiver('zip', {
+    zlib: { level: 9 },
+  });
+  return new Promise((resolve, reject) => {
+    archive.on('error', (err: unknown) => {
+      reject(err);
+    });
+    archive.pipe(output);
+    archive.directory(tempPath, false);
+    const allResources: string[] = [];
+    projectBundleMeta.langs.forEach((lang) => {
+      allResources.push(...projectBundleMeta.resources[lang].filter((v) => !allResources.includes(v)));
+    });
+    allResources.forEach((resPath) => {
+      archive.file(path.join(entryPath, 'resources', resPath), { name: 'resources/' + resPath });
+    });
+    output.on('close', async () => {
+      // remove temp files
+      fs.rmSync(tempPath, { recursive: true, force: true });
+    });
+    archive.on('error', (err: unknown) => {
+      reject(err);
+    });
+    archive.finalize();
+    resolve();
+  });
+};
+
+interface PackCommandOptions {
+  output: string;
+}
+
 const register = (program: Command) => {
   program
     .command('pack')
     .argument('[path]', 'path of project folder')
+    .option('-o, --output <path>', 'output path')
     .alias('p')
-    .action(async (p) => {
-      const entryPath = p || process.cwd();
+    .action(async (workDir, options: PackCommandOptions) => {
+      const entryPath = workDir || process.cwd();
       const projectMeta: ProjectMeta = yaml.load(
         fs.readFileSync(path.join(entryPath, 'meta.yml'), 'utf8'),
       ) as ProjectMeta;
       const langs: string[] = projectMeta.langs ? projectMeta.langs : ['default'];
       // do pack files
-      const projectBundleMeta: ProjectBundleMeta = {"langs": [], "resources": {}, "name": projectMeta.name};
+      const projectBundleMeta: ProjectBundleMeta = { langs: [], resources: {}, name: projectMeta.name };
       const packRes = await Promise.all(langs.map((lang) => packFiles(entryPath, lang)));
-      // write to output
-      const outputPath = './dist';
-      if (!fs.existsSync(outputPath)) {
-        fs.mkdirSync(outputPath);
-      }
-      packRes.forEach((res) => {
-        projectBundleMeta.resources[res.lang] = res.resources;
-        projectBundleMeta.langs.push(res.lang);
-        const scriptFileName = `${res.lang}.json`;
-        fs.writeFileSync(path.join(outputPath, scriptFileName), JSON.stringify(res.scriptData));
+      // check output related dir
+      const outputPath = path.resolve(options.output || './dist');
+      const tempPath = path.resolve(process.cwd(), './temp');
+      await Promise.all(
+        [outputPath, tempPath].map((p) => {
+          if (!fs.existsSync(p)) {
+            return fs.promises.mkdir(p, { recursive: true });
+          }
+          return Promise.resolve();
+        }),
+      );
+      // create meta files
+      await createMetaFiles(packRes, {
+        projectBundleMeta,
+        outputPath: tempPath,
       });
-      fs.writeFileSync(path.join(outputPath, "meta.json"), JSON.stringify(projectBundleMeta));
-      const output = fs.createWriteStream(projectMeta.name + ".zip");
-      const archive = archiver('zip', {
-        zlib: { level: 9 }
+      // create resouce pack
+      await createResourcePack({
+        projectMeta,
+        projectBundleMeta,
+        entryPath,
+        tempPath,
+        outputPath,
       });
-      archive.on('error', function(err) {
-        throw err;
-      });
-      archive.pipe(output);
-      archive.directory(outputPath, false);
-      let allResources: string[] = []
-      projectBundleMeta.langs.forEach(lang => {
-        allResources = allResources.concat(projectBundleMeta.resources[lang].filter(v => !allResources.includes(v)))
-      })
-      allResources.forEach(resPath => {
-        archive.file(path.join(entryPath, "resources", resPath), { name: "resources/" + resPath });
-      })
-      output.on('close', () => {
-        fs.rmSync(outputPath, { recursive: true, force: true });
-      })
-      archive.on('error', function(err) {
-        throw err;
-      });
-      archive.finalize();
     });
 };
 
