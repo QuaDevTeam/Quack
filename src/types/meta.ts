@@ -7,9 +7,7 @@ export interface LangMeta {
   entry: string | undefined;
   character: {
     [characterName: string]: {
-      show: string;
-      color?: string;
-      [propName: string]: string | undefined;
+      [propName: string]: string;
     };
   };
   resources: {
@@ -25,6 +23,7 @@ export interface ScriptData {
     [propName: string]: string[];
   };
   entry: string;
+  character: LangMeta["character"];
 }
 
 export interface StatementActionPair {
