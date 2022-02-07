@@ -94,6 +94,7 @@ const packFiles = async (entryPath: string, lang: string) => {
   const scriptData: ScriptData = { script: {}, control: {}, entry: {} };
   const scriptPath = path.join(entryPath, 'scripts', lang === 'default' ? '' : lang);
   const langMeta = yaml.load(fs.readFileSync(path.join(scriptPath, 'meta.yml'), 'utf8')) as LangMeta;
+  let fileAlias: LangMeta["resources"] = {};
   if (langMeta.entry) {
     scriptData.entry[lang] = langMeta.entry;
   }
@@ -103,16 +104,9 @@ const packFiles = async (entryPath: string, lang: string) => {
       continue;
     }
 
-    const metaKeywordIdx = found.file.indexOf('meta.yml');
-    if (metaKeywordIdx === -1) {
-      continue;
+    if (langMeta.resources) {
+      fileAlias = langMeta.resources
     }
-
-    found.file.splice(metaKeywordIdx, 1);
-
-    const SectionMeta: SectionMeta = yaml.load(
-      fs.readFileSync(path.join(scriptPath, 'meta.yml'), 'utf8'),
-    ) as SectionMeta;
 
     const scriptNamespace = found.path
       .split(path.sep)
@@ -147,7 +141,7 @@ const packFiles = async (entryPath: string, lang: string) => {
   }
   return {
     lang,
-    resources: getAllKeys('file', scriptData),
+    resources: getAllKeys('file', scriptData, fileAlias),
     scriptData,
   };
 };

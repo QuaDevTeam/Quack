@@ -5,10 +5,6 @@ export interface ProjectMeta {
 
 export interface LangMeta {
   entry: string | undefined;
-}
-
-export interface SectionMeta {
-  entry: string | undefined;
   character: {
     [characterName: string]: {
       show: string;

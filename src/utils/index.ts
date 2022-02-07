@@ -16,7 +16,11 @@ export async function* walk(dir: string): AsyncGenerator<QuaFileList> {
   if (fileList.file.length > 0) yield fileList;
 }
 
-export function getAllKeys(key: string, data: Object): string[] {
+export function getAllKeys(targetKey: string, data: {
+  [propName: string]: any;
+}, replace: {
+  [propName: string]: string;
+}): string[] {
   let result: string[] = [];
   if (typeof data === 'string') {
     return result;
@@ -28,13 +32,16 @@ export function getAllKeys(key: string, data: Object): string[] {
     const str = item.toString();
     if (typeof item === 'object' && str === '[object Object]') {
       // is object
-      result = result.concat(getAllKeys(key, data[safeKey]));
+      result = result.concat(getAllKeys(targetKey, data[safeKey], replace));
     } else if (Array.isArray(item)) {
       item.forEach((child) => {
-        result = result.concat(getAllKeys(key, child));
+        result = result.concat(getAllKeys(targetKey, child, replace));
       });
-    } else if (safeKey === key) {
-      result.push(safeKey);
+    } else if (safeKey === targetKey) {
+      if (replace[str]) {
+        data[safeKey] = replace[str]
+      }
+      result.push(data[safeKey]);
     }
   });
 
