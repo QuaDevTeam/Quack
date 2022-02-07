@@ -24,8 +24,8 @@ const packQsFile = (context: PackQsFileContext) => {
   for (let pairAction of scriptContent) {
     let pairActionLines = pairAction.split(/\r?\n/);
     let lastLine = pairActionLines[pairActionLines.length - 1];
-    const includeColonOrDash = lastLine.includes(':') || lastLine.includes('-');
 
+    const includeColonOrDash = lastLine.includes(':') || lastLine.includes('-');
     const wrappedWithQuote =
       lastLine.startsWith("'") && lastLine.endsWith("'") && lastLine.startsWith('"') && lastLine.endsWith('"');
     if (!includeColonOrDash || (includeColonOrDash && wrappedWithQuote)) {
