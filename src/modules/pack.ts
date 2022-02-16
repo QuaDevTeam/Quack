@@ -185,6 +185,7 @@ interface CreateResourcePackContext {
 
 const createResourcePack = (context: CreateResourcePackContext): Promise<void> => {
   const { projectMeta, projectBundleMeta, entryPath, outputPath, tempPath } = context;
+  // TODO: Add dev mode
   const output = fs.createWriteStream(path.resolve(outputPath, `./${projectMeta.name}.qak`));
   const archive = archiver('zip', {
     zlib: { level: 9 },
@@ -200,6 +201,7 @@ const createResourcePack = (context: CreateResourcePackContext): Promise<void> =
       allResources.push(...projectBundleMeta.resources[lang].filter((v) => !allResources.includes(v)));
     });
     allResources.forEach((resPath) => {
+      // TODO: Add build log for diff
       archive.file(path.join(entryPath, 'resources', resPath), { name: 'resources/' + resPath });
     });
     output.on('close', async () => {
@@ -223,6 +225,9 @@ const register = (program: Command) => {
     .description('Pack project folder as ".qak" file.')
     .argument('[path]', 'path of project folder')
     .option('-o, --output <path>', 'output path')
+    .option('--diff <build>', 'build diff pack')
+    .option('--build <build>', 'build number')
+    .option('--dev', 'development mode')
     .alias('p')
     .action(async (workDir, options: PackCommandOptions) => {
       const entryPath = workDir || process.cwd();
@@ -257,8 +262,11 @@ const register = (program: Command) => {
         tempPath,
         outputPath,
       });
+      // TODO: Create manifest json
     });
 };
+
+// TODO: Add programmatic APIs
 
 export default {
   name: 'pack',
