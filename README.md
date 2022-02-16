@@ -1,6 +1,6 @@
 # Quack
 
-Pack scripts and resources for Qua.
+Pack scripts and resources for QuaEngine.
 
 ## License
 
