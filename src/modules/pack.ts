@@ -185,7 +185,7 @@ interface CreateResourcePackContext {
 
 const createResourcePack = (context: CreateResourcePackContext): Promise<void> => {
   const { projectMeta, projectBundleMeta, entryPath, outputPath, tempPath } = context;
-  const output = fs.createWriteStream(path.resolve(outputPath, `./${projectMeta.name}.zip`));
+  const output = fs.createWriteStream(path.resolve(outputPath, `./${projectMeta.name}.qak`));
   const archive = archiver('zip', {
     zlib: { level: 9 },
   });
@@ -220,7 +220,7 @@ interface PackCommandOptions {
 
 const register = (program: Command) => {
   program
-    .command('pack')
+    .description('Pack project folder as ".qak" file.')
     .argument('[path]', 'path of project folder')
     .option('-o, --output <path>', 'output path')
     .alias('p')

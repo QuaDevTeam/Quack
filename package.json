@@ -1,6 +1,6 @@
 {
-  "name": "quack",
-  "version": "1.0.0",
+  "name": "@quajs/quack",
+  "version": "0.1.0",
   "description": "Pack scripts and resources for QuaEngine",
   "main": "./bin/cli.js",
   "bin": {
