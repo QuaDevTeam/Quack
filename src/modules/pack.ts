@@ -1,13 +1,25 @@
+/* eslint-disable no-async-promise-executor */
 import fs from 'fs';
 import path from 'path';
 import yaml from 'js-yaml';
 import archiver from 'archiver';
+import { randomBytes } from 'crypto';
 import { getTransformedScript } from '@quajs/get-func-exports';
 import type { Command } from 'commander';
 import type { Action, LangMeta, ProjectMeta, ScriptData, ProjectBundleMeta, StatementActionPair } from '../types/meta';
+import type { FileRecords } from '../types/log';
 import { getAllKeys, QuaFileList, walk } from '../utils';
+import { getFileRecord } from '../utils/build';
 
+const RandomBytesLength = 16;
 const timeRegex = /([0-9]+):([0-6][0-9]).?([0-9]*)/;
+
+interface PackCommandOptions {
+  output: string;
+  diff?: string;
+  build?: string;
+  dev?: boolean;
+}
 
 interface PackQsFileContext {
   scriptData: ScriptData;
@@ -181,44 +193,83 @@ interface CreateResourcePackContext {
   entryPath: string;
   outputPath: string;
   tempPath: string;
+  isDevMode: boolean;
 }
 
-const createResourcePack = (context: CreateResourcePackContext): Promise<void> => {
-  const { projectMeta, projectBundleMeta, entryPath, outputPath, tempPath } = context;
-  // TODO: Add dev mode
-  const output = fs.createWriteStream(path.resolve(outputPath, `./${projectMeta.name}.qak`));
+const createResourcePack = async (context: CreateResourcePackContext): Promise<void> => {
+  const { projectMeta, projectBundleMeta, entryPath, outputPath, tempPath, isDevMode } = context;
+  // create build log files
+  const fileRecords: FileRecords = {};
+  // determine the output file format
+  const outputFileName = `./${projectMeta.name}.${isDevMode ? 'zip' : 'qak'}`;
+  const output = fs.createWriteStream(path.resolve(outputPath, outputFileName));
+  if (!isDevMode) {
+    // write random bytes to the file header
+    await new Promise<void>((resolve, reject) => {
+      output.write(randomBytes(RandomBytesLength), (err) => {
+        if (err) {
+          reject(err);
+        }
+        resolve();
+      });
+    });
+  }
   const archive = archiver('zip', {
     zlib: { level: 9 },
   });
-  return new Promise((resolve, reject) => {
+  return await new Promise(async (resolve, reject) => {
     archive.on('error', (err: unknown) => {
       reject(err);
     });
     archive.pipe(output);
-    archive.directory(tempPath, false);
+    // bundle compiled files under the temp path
+    const recursiveArchive = async (base: string, namePrefix = '') => {
+      const dirInfos = await fs.promises.readdir(base);
+      await Promise.all(
+        dirInfos.map(async (fileName: string) => {
+          const filePath = path.resolve(base, fileName);
+          const stat = await fs.promises.stat(filePath);
+          if (stat.isDirectory()) {
+            await recursiveArchive(filePath, namePrefix ? `${namePrefix}/${fileName}` : fileName);
+            return;
+          }
+          // archive file
+          const fileRecord = await getFileRecord(filePath, stat);
+          const name = `${namePrefix}/${fileName}`;
+          fileRecords[name] = fileRecord;
+          archive.file(filePath, { name });
+        }),
+      );
+    };
+    await recursiveArchive(tempPath);
+    // bundle resources
     const allResources: string[] = [];
     projectBundleMeta.langs.forEach((lang) => {
       allResources.push(...projectBundleMeta.resources[lang].filter((v) => !allResources.includes(v)));
     });
-    allResources.forEach((resPath) => {
-      // TODO: Add build log for diff
-      archive.file(path.join(entryPath, 'resources', resPath), { name: 'resources/' + resPath });
-    });
-    output.on('close', async () => {
-      // remove temp files
-      fs.rmSync(tempPath, { recursive: true, force: true });
-    });
+    await Promise.all(
+      allResources.map(async (resPath) => {
+        const resolved = path.join(entryPath, 'resources', resPath);
+        const name = `resources/${resPath}`;
+        const fileRecord = await getFileRecord(resolved);
+        fileRecords[name] = fileRecord;
+        archive.file(resolved, { name });
+      }),
+    );
     archive.on('error', (err: unknown) => {
       reject(err);
     });
+    archive.on('finish', () => {
+      resolve();
+    });
+    output.on('close', async () => {
+      // TODO: save build log
+      // remove temp files
+      await fs.promises.rm(tempPath, { recursive: true, force: true });
+    });
     archive.finalize();
-    resolve();
   });
 };
-
-interface PackCommandOptions {
-  output: string;
-}
 
 const register = (program: Command) => {
   program
@@ -261,6 +312,7 @@ const register = (program: Command) => {
         entryPath,
         tempPath,
         outputPath,
+        isDevMode: !!options.dev,
       });
       // TODO: Create manifest json
     });

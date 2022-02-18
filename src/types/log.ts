@@ -1,8 +1,11 @@
 export interface FileRecordItem {
-  hash: string;
+  hash: number | string;
+  mtime: number | bigint;
 }
 
-export type FileRecords = Record<string, FileRecordItem>;
+export type FileName = string;
+
+export type FileRecords = Record<FileName, FileRecordItem>;
 
 export interface BuildLog {
   build: string;
