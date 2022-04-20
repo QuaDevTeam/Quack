@@ -25,7 +25,7 @@ export interface ProjectBundleMeta {
 
 export interface ScriptData {
   script: {
-    [propName: string]: Array<StatementActionPair>;
+    [propName: string]: Array<Step>;
   };
   control: {
     [propName: string]: string[];
@@ -34,18 +34,12 @@ export interface ScriptData {
   character: LangMeta["character"];
 }
 
-export interface StatementActionPair {
-  statement: Statement;
-  action?: Action;
-}
-
-export interface Statement {
-  subject: string;
-  content: unknown;
+export interface Step {
+  action: Action;
 }
 
 export interface Action {
-  [propName: string]: {
-    [propName: string]: unknown;
+  [time: string]: {
+    [action: string]: unknown;
   };
 }

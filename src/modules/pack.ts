@@ -6,7 +6,7 @@ import archiver from 'archiver';
 import { randomBytes } from 'crypto';
 import { getTransformedScript } from '@quajs/get-func-exports';
 import type { Command } from 'commander';
-import type { Action, LangMeta, ProjectMeta, ScriptData, ProjectBundleMeta, StatementActionPair } from '../types/meta';
+import type { Action, LangMeta, ProjectMeta, ScriptData, ProjectBundleMeta, Step } from '../types/meta';
 import type { FileRecords } from '../types/log';
 import { getAllKeys, QuaFileList, walk } from '../utils';
 import { getFileRecord } from '../utils/build';
@@ -47,16 +47,19 @@ const packQsFile = (context: PackQsFileContext) => {
       pairAction = pairActionLines.join('\n');
     }
 
-    const actionStatementPair: Partial<StatementActionPair> = yaml.load(pairAction) as Partial<StatementActionPair>;
+    const actionStatementPair: Partial<Step> = yaml.load(pairAction) as Partial<Step>;
     const allKeys = Object.keys(actionStatementPair);
     const subject = allKeys[allKeys.length === 1 ? 0 : allKeys.length - 1];
     const statementContent = actionStatementPair[subject as keyof typeof actionStatementPair];
-    const content: StatementActionPair = {
-      statement: {
-        subject,
-        content: statementContent,
+    const content: Step = {
+      action: {
+        '0': {
+          dialog: {
+            subject,
+            content: statementContent
+          }
+        }
       },
-      action: {},
     };
     if (allKeys.length > 1) {
       // remove last key, the last one is dialog.
@@ -71,12 +74,6 @@ const packQsFile = (context: PackQsFileContext) => {
           if (!content.action) content.action = {};
           content.action[`${time}`] = actionStatementPair[action as keyof typeof actionStatementPair] as Action;
           return;
-        }
-        if (!content.action) {
-          content.action = {};
-        }
-        if (!content.action['0']) {
-          content.action['0'] = {};
         }
         content.action['0'][action] = actionStatementPair[action as keyof typeof actionStatementPair];
       });
