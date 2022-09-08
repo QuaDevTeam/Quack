@@ -85,18 +85,18 @@ const packQsFile = (context: PackQsFileContext) => {
 interface PackJsFileContext {
   fileList: QuaFileList;
   scriptData: ScriptData;
-  scriptPath: string;
+  scriptNamespace: string;
   filePath: string;
 }
 
 const packJsFile = (context: PackJsFileContext) => {
-  const { fileList, scriptData, scriptPath, filePath } = context;
+  const { fileList, scriptData, scriptNamespace, filePath } = context;
   const scriptContent: string = fs.readFileSync(path.join(fileList.path, filePath), 'utf8');
-  if (!scriptData.control[scriptPath]) {
-    scriptData.control[scriptPath] = [];
+  if (!scriptData.control[scriptNamespace]) {
+    scriptData.control[scriptNamespace] = [];
   }
   const transformed = getTransformedScript(scriptContent);
-  scriptData.control[scriptPath].push(transformed);
+  scriptData.control[scriptNamespace].push(transformed);
 };
 
 // pack files for each lang
@@ -141,7 +141,7 @@ const packFiles = async (entryPath: string, lang: string) => {
           packJsFile({
             fileList: found,
             scriptData,
-            scriptPath,
+            scriptNamespace,
             filePath,
           }),
       };
